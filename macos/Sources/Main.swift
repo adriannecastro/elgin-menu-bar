@@ -249,10 +249,15 @@ struct RoomPanel: View {
                     .foregroundStyle(accent).padding(.horizontal, 9).padding(.vertical, 6)
                     .background(accent.opacity(0.10), in: Capsule())
             }
-            HStack(spacing: 6) {
-                tabButton(L("Ar-condicionado"), icon: "air.conditioner.horizontal", index: 0)
-                tabButton(L("Iluminação"), icon: "lightbulb", index: 1)
-            }.padding(4).background(surface.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
+            Picker("", selection: $state.tab) {
+                Label(L("Ar-condicionado"), systemImage: "air.conditioner.horizontal").tag(0)
+                Label(L("Iluminação"), systemImage: "lightbulb").tag(1)
+            }
+            .labelsHidden()
+            .pickerStyle(.segmented)
+            .frame(maxWidth: .infinity)
+            .padding(4)
+            .background(surface.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
             if state.tab == 0 { airPanel } else { lightPanel }
             HStack(spacing: 7) {
                 Circle().fill(accent.opacity(0.65)).frame(width: 5, height: 5)
@@ -273,18 +278,6 @@ struct RoomPanel: View {
         .padding(18)
         .frame(width: 420)
         .foregroundStyle(.primary)
-    }
-
-    private func tabButton(_ title: String, icon: String, index: Int) -> some View {
-        Button { if state.tab != index { state.tab = index } } label: {
-            HStack(spacing: 7) {
-                Image(systemName: icon)
-                Text(L(title)).font(.system(size: 12, weight: .medium))
-            }.frame(maxWidth: .infinity).padding(.vertical, 10)
-                .foregroundStyle(state.tab == index ? Color.primary : Color.secondary)
-                .background(state.tab == index ? Color.primary.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 10))
-                .contentShape(RoundedRectangle(cornerRadius: 10))
-        }.buttonStyle(.plain)
     }
 
     private func power(_ role: String) -> some View {
