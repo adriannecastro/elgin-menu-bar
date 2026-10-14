@@ -115,3 +115,6 @@
 "A consulta de estado não aceita comandos adicionais." = "Status queries do not accept additional commands.";
 "Não foi possível completar a operação local." = "Unable to complete the local operation.";
 "Quarto" = "Room";
+"Ar ligado" = "Air conditioner on";
+"Ar desligado" = "Air conditioner off";
+"Sem conexão" = "Disconnected";

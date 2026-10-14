@@ -23,6 +23,8 @@ English interface previews with simulated values. No appliances are connected in
 
 Available controls depend on the device's reported capabilities. The app follows your macOS language setting, with English and Portuguese interfaces. Click the menu bar icon to open the panel; click it again to close it. Right-click the icon to quit.
 
+The menu bar shows a separate power indicator for each appliance, plus the target temperature when the air conditioner is on. Both panels show explicit on/off labels. A dash in the menu bar indicates that the app has no current power reading; it does not mean the appliance is off.
+
 ## Tested devices
 
 | Device | Tuya LAN protocol | Status |
@@ -89,6 +91,12 @@ local/cloud-venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 ```
 
 These tests use fake devices and do not access your network or send commands to your appliances.
+
+After building, check power-state labels without connecting to devices:
+
+```sh
+'local/Elgin Menu Bar.app/Contents/MacOS/ElginMenuBar' --power-status-check
+```
 
 ## Contributing
 
