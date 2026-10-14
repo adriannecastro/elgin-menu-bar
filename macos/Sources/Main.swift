@@ -249,15 +249,10 @@ struct RoomPanel: View {
                     .foregroundStyle(accent).padding(.horizontal, 9).padding(.vertical, 6)
                     .background(accent.opacity(0.10), in: Capsule())
             }
-            Picker("", selection: $state.tab) {
-                Label(L("Ar-condicionado"), systemImage: "air.conditioner.horizontal").tag(0)
-                Label(L("Iluminação"), systemImage: "lightbulb").tag(1)
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .frame(maxWidth: .infinity)
-            .padding(4)
-            .background(surface.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
+            HStack(spacing: 6) {
+                tabButton(L("Ar-condicionado"), icon: "air.conditioner.horizontal", index: 0)
+                tabButton(L("Iluminação"), icon: "lightbulb", index: 1)
+            }.padding(4).background(surface.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
             if state.tab == 0 { airPanel } else { lightPanel }
             HStack(spacing: 7) {
                 Circle().fill(accent.opacity(0.65)).frame(width: 5, height: 5)
@@ -278,6 +273,18 @@ struct RoomPanel: View {
         .padding(18)
         .frame(width: 420)
         .foregroundStyle(.primary)
+    }
+
+    private func tabButton(_ title: String, icon: String, index: Int) -> some View {
+        Button { if state.tab != index { state.tab = index } } label: {
+            HStack(spacing: 7) {
+                Image(systemName: icon)
+                Text(L(title)).font(.system(size: 12, weight: .medium))
+            }.frame(maxWidth: .infinity).padding(.vertical, 10)
+                .foregroundStyle(state.tab == index ? Color.primary : Color.secondary)
+                .background(state.tab == index ? Color.primary.opacity(0.08) : Color.clear, in: RoundedRectangle(cornerRadius: 10))
+                .contentShape(RoundedRectangle(cornerRadius: 10))
+        }.buttonStyle(.plain)
     }
 
     private func power(_ role: String) -> some View {
@@ -510,8 +517,8 @@ struct GlassPanel: View {
     @ObservedObject var layout: PanelLayout
     var body: some View {
         let outline = MenuOutline(pointerX: layout.pointerX)
-        let content = ScrollView(.vertical) { RoomPanel(state: state) }
-            .scrollIndicators(.hidden)
+        let content = RoomPanel(state: state)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.top, 10)
             .frame(width: layout.width, height: layout.height, alignment: .top)
         if #available(macOS 26.0, *) {
@@ -623,11 +630,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let originalContent = panel?.contentView
         let readDoesNotDisableControls = state.canControl("ac", "power") && state.canControl("lamp", "power")
         var preserved = true
+        var contentFits = true
+        func containsScrollView(_ view: NSView) -> Bool {
+            view is NSScrollView || view.subviews.contains(where: containsScrollView)
+        }
         var switches = 0
         for step in 1...6 {
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(step) * 0.15) { [weak self] in
                 guard let self else { return }
                 preserved = preserved && self.hostingView === originalHost && self.panel?.contentView === originalContent
+                let requiredHeight = ceil(NSHostingView(rootView: RoomPanel(state: self.state)).fittingSize.height) + 10
+                contentFits = contentFits && self.layout.height >= requiredHeight && self.panel?.frame.height == self.layout.height
                 self.state.tab = step % 2
                 switches += 1
             }
@@ -641,6 +654,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 let result: [String: Any] = ["backgroundReadKeepsControlsEnabled": readDoesNotDisableControls,
                     "tabSwitchCount": switches, "hostingViewPreserved": stable,
                     "hostIdentityPreserved": self.hostingView === originalHost,
+                    "bothTabsFitPanel": contentFits,
+                    "panelContainsNoScrollView": self.hostingView.map { !containsScrollView($0) } ?? false,
                     "failedReadRetainsKnownValues": staleRetained, "recoveryUpdatesValues": recoveredCorrectly,
                     "contentType": String(describing: type(of: self.panel?.contentView)),
                     "closedPanelStaysClosed": self.panel?.isVisible == false]
@@ -704,7 +719,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hostingView = host
             window.contentView = host
         }
-        if window.frame != frame { window.setFrame(frame, display: true) }
+        // Defer drawing until SwiftUI and the window have their final sizes.
+        if window.frame != frame { window.setFrame(frame, display: false) }
         panel = window
         if eventMonitor == nil {
             eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
