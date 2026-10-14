@@ -576,7 +576,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             button.image = StatusArtwork.image(text: statusText)
             button.target = self
             button.action = #selector(togglePanel)
-            button.setButtonType(.toggle)
+            if #available(macOS 27.0, *) {
+                item.expandedInterfaceDelegate = self
+            } else {
+                button.setButtonType(.toggle)
+            }
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         NotificationCenter.default.publisher(for: NSLocale.currentLocaleDidChangeNotification)
@@ -603,11 +607,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
                 guard let self else { return }
                 self.showPanel()
-                let opened = self.panel?.isVisible == true && self.item.button?.state == .on
-                self.item.button?.performClick(nil)
-                let closed = self.panel?.isVisible == false && self.item.button?.state == .off
-                self.item.button?.performClick(nil)
-                let reopened = self.panel?.isVisible == true && self.item.button?.state == .on
+                let opened = self.panel?.isVisible == true
+                self.togglePanel()
+                let closed = self.panel?.isVisible == false
+                self.togglePanel()
+                let reopened = self.panel?.isVisible == true
                 let result = ["opened": opened, "secondClickClosed": closed, "thirdClickOpened": reopened]
                 let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("local/panel-ui-check.json")
                 if let data = try? JSONSerialization.data(withJSONObject: result) { try? data.write(to: path, options: .atomic) }
@@ -622,6 +626,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         state.lampCapabilities = ["power": [:]]
         state.busy = true // Simulate a background read, without connecting to devices.
         showPanel()
+        let selectionHandlingConfigured: Bool
+        if #available(macOS 27.0, *) {
+            selectionHandlingConfigured = item.expandedInterfaceDelegate === self
+        } else {
+            selectionHandlingConfigured = item.button?.state == .on
+        }
         let cached: [String: Any] = ["lamp_connected": true, "lamp": ["connected": true, "brightness": 63, "color": ["h": 0.4], "capabilities": ["power": [:]]], "ac_connected": true]
         let failed = mergeSnapshot(cached, ["lamp_connected": false, "lamp": ["connected": false, "capabilities": [:]]])
         let retained = failed["lamp"] as? [String: Any]
@@ -653,9 +663,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.closePanel()
             self.state.tab = 1
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                let selectionCleared: Bool
+                if #available(macOS 27.0, *) {
+                    selectionCleared = self.item.expandedInterfaceSession == nil
+                } else {
+                    selectionCleared = self.item.button?.isHighlighted == false
+                }
                 let result: [String: Any] = ["backgroundReadKeepsControlsEnabled": readDoesNotDisableControls,
                     "tabSwitchCount": switches, "hostingViewPreserved": stable,
                     "hostIdentityPreserved": self.hostingView === originalHost,
+                    "selectionHandlingConfigured": selectionHandlingConfigured,
+                    "closedPanelClearsSelection": selectionCleared,
                     "bothTabsFitPanel": contentFits,
                     "panelContainsNoScrollView": self.hostingView.map { !containsScrollView($0) } ?? false,
                     "failedReadRetainsKnownValues": staleRetained, "recoveryUpdatesValues": recoveredCorrectly,
@@ -669,17 +687,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePanel() {
-        guard let button = item.button else { return }
+        guard item.button != nil else { return }
         if NSApp.currentEvent?.type == .rightMouseUp {
-            closePanel()
-            let menu = NSMenu()
-            menu.addItem(withTitle: L("Encerrar Elgin Menu Bar"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-            item.menu = menu
-            button.performClick(nil)
-            item.menu = nil
+            showQuitMenu()
         } else if panel?.isVisible == true {
             closePanel()
         } else { showPanel() }
+    }
+
+    private func quitMenu() -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(withTitle: L("Encerrar Elgin Menu Bar"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        return menu
+    }
+
+    private func showQuitMenu() {
+        closePanel()
+        if #available(macOS 27.0, *), let button = item.button, let window = button.window {
+            let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
+            quitMenu().popUp(positioning: nil, at: NSPoint(x: rect.minX, y: rect.minY), in: nil)
+            return
+        }
+        item.menu = quitMenu()
+        item.button?.performClick(nil)
+        item.menu = nil
     }
 
     private func showPanel() {
@@ -731,7 +762,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 // O clique no ícone deve chegar ao toggle; não fechar antes do mouseUp.
                 if let button = self.item.button, let bar = button.window {
                     let iconRect = bar.convertToScreen(button.convert(button.bounds, to: nil))
-                    if iconRect.contains(point) { return }
+                    if iconRect.contains(point) {
+                        if #available(macOS 27.0, *), let session = self.item.expandedInterfaceSession {
+                            session.cancel()
+                        }
+                        return
+                    }
                 }
                 if self.panel?.frame.contains(point) == true { return }
                 self.closePanel()
@@ -754,31 +790,58 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.button?.image = StatusArtwork.image(text: title)
         }
         let opened = panel?.isVisible == true
-        let buttonState: NSControl.StateValue = opened ? .on : .off
-        if item.button?.state != buttonState {
-            item.button?.state = buttonState
-            item.button?.highlight(opened)
+        if #unavailable(macOS 27.0) {
+            let buttonState: NSControl.StateValue = opened ? .on : .off
+            if item.button?.state != buttonState {
+                item.button?.state = buttonState
+                item.button?.highlight(opened)
+            }
         }
         item.button?.toolTip = opened ? L("Recolher controles do quarto") : L("Abrir controles do quarto")
         item.button?.setAccessibilityLabel(opened ? L("Recolher controles do quarto") : L("Abrir controles do quarto"))
         item.button?.setAccessibilityValue(title)
         if let button = item.button, let window = button.window {
             let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
-            let geometry: [String: Double] = ["windowNumber": Double(window.windowNumber),
+            var geometry: [String: Double] = ["windowNumber": Double(window.windowNumber),
                 "x": rect.minX, "y": (NSScreen.screens.first?.frame.maxY ?? 0) - rect.maxY,
                 "width": rect.width, "height": rect.height,
                 "artworkWidth": Double(button.image?.size.width ?? 0),
                 "nativeSizing": item.length == NSStatusItem.variableLength ? 1 : 0]
+            if #available(macOS 27.0, *) {
+                geometry["nativeSessionActive"] = item.expandedInterfaceSession == nil ? 0 : 1
+            }
             let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("local/status-item-window.json")
             if let data = try? JSONSerialization.data(withJSONObject: geometry) { try? data.write(to: path, options: .atomic) }
         }
     }
 
     private func closePanel() {
+        if #available(macOS 27.0, *), let session = item.expandedInterfaceSession {
+            session.cancel()
+            return
+        }
         isPanelOpen = false
         panel?.orderOut(nil)
         updateStatusButton()
         if let eventMonitor { NSEvent.removeMonitor(eventMonitor); self.eventMonitor = nil }
+    }
+}
+
+@available(macOS 27.0, *)
+extension AppDelegate: NSStatusItemExpandedInterfaceDelegate {
+    func statusItem(_ statusItem: NSStatusItem, didBegin expandedInterfaceSession: NSStatusItemExpandedInterfaceSession) {
+        if NSApp.currentEvent?.type == .rightMouseUp || NSApp.currentEvent?.type == .rightMouseDown {
+            expandedInterfaceSession.cancel()
+            showQuitMenu()
+        } else if panel?.isVisible == true {
+            expandedInterfaceSession.cancel()
+        } else {
+            showPanel()
+        }
+    }
+
+    func statusItemDidEndExpandedInterfaceSession(_ statusItem: NSStatusItem, animated: Bool) {
+        closePanel()
     }
 }
 
