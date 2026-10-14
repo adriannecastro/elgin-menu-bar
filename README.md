@@ -62,7 +62,7 @@ You can also open `Package.swift` in Xcode, select the **ElginMenuBar** scheme a
 
 - The controller expects one air conditioner in Tuya category `kt` and one light in category `dj`. Other device combinations require code changes.
 - Discovery alone does not establish support. The app needs valid local keys and a compatible device schema to read and change controls.
-- Temperature adjustments currently require the air conditioner to use Celsius. The device schema supplies the allowed range.
+- Temperature adjustments require the air conditioner to use Celsius. The app restricts the range to 16–32 °C and applies any narrower limits reported by the device schema.
 - The app polls device state every 10 seconds. Connection failures can delay confirmation of a change.
 - Earlier macOS versions use the fallback menu bar behavior; the current UI checks ran on macOS 27.
 
@@ -97,7 +97,6 @@ Write contributions in English and preserve the app's English and Portuguese loc
 
 - [Setup guide](docs/SETUP.md)
 - [Technical references](docs/REFERENCES.md)
-- [LGwebOS-menubar](https://github.com/gabrielgreco1/LGwebOS-menubar), the structural reference for this README.
 
 ## License
 
