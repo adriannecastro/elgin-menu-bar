@@ -117,6 +117,48 @@ final class DemoState: ObservableObject {
         return L(connected ? "Conectado" : known ? "Reconectando" : "Conectando")
     }
     var temperatureLabel: String { live && !hasACState ? "—" : String(Int(temperature)) }
+    func powerState(_ role: String) -> Bool? {
+        if !live { return role == "ac" ? acOn : lightOn }
+        guard role == "ac" ? acConnected : lampConnected else { return nil }
+        return (lastResult[role] as? [String: Any])?["power"] as? Bool
+    }
+    func powerLabel(_ role: String) -> String {
+        guard let on = powerState(role) else {
+            return L((role == "ac" ? acConnected : lampConnected) ? "Indisponível" : "Sem conexão")
+        }
+        return L(role == "ac" ? (on ? "Ar ligado" : "Ar desligado") : (on ? "Luz ligada" : "Luz desligada"))
+    }
+    var acMenuLabel: String {
+        guard let on = powerState("ac") else { return "—" }
+        let label = L(on ? "Ligado" : "Desligado")
+        return on && (!live || acCapabilities["temperature"] != nil) ? "\(label) \(Int(temperature))°" : label
+    }
+    var lampMenuLabel: String {
+        powerState("lamp").map { L($0 ? "Ligado" : "Desligado") } ?? "—"
+    }
+    static func verifyPowerStates() -> [String: Bool] {
+        let state = DemoState()
+        var checks = ["startupIsUnknown": state.powerState("ac") == nil && state.powerState("lamp") == nil]
+        state.acConnected = true
+        state.lampConnected = true
+        state.acCapabilities = ["temperature": [:]]
+        state.temperature = 25
+        state.lastResult = ["ac": ["power": true], "lamp": ["power": false]]
+        checks["mixedPowerStates"] = state.powerState("ac") == true && state.powerState("lamp") == false
+        checks["menuLabels"] = state.acMenuLabel == "\(L("Ligado")) 25°" && state.lampMenuLabel == L("Desligado")
+        checks["panelLabels"] = state.powerLabel("ac") == L("Ar ligado") && state.powerLabel("lamp") == L("Luz desligada")
+        state.lastResult = ["ac": ["power": false], "lamp": ["power": true]]
+        checks["reversedPowerStates"] = state.acMenuLabel == L("Desligado") && state.lampMenuLabel == L("Ligado")
+        state.acConnected = false
+        checks["disconnectedIsUnknown"] = state.powerState("ac") == nil && state.acMenuLabel == "—" && state.powerLabel("ac") == L("Sem conexão")
+        state.lastResult = ["lamp": [:]]
+        checks["missingPowerIsUnknown"] = state.powerState("lamp") == nil && state.powerLabel("lamp") == L("Indisponível")
+        state.lastResult = ["lamp": ["power": "false"]]
+        checks["invalidPowerIsUnknown"] = state.powerState("lamp") == nil
+        let demo = DemoState(live: false)
+        checks["demoPowerStates"] = demo.powerState("ac") == true && demo.powerState("lamp") == true
+        return checks
+    }
     func connect() {
         guard live else { return }
         request(["status"])
@@ -305,7 +347,10 @@ struct RoomPanel: View {
     private var airPanel: some View {
         VStack(spacing: 16) {
             HStack {
-                Text(state.live ? state.ambient.map { L("Ambiente %@ °%@", String(Int($0)), state.temperatureUnit) } ?? L("Ambiente — °C") : L("Ambiente — °C")).font(.system(size: 12)).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(state.powerLabel("ac")).font(.system(size: 12, weight: .medium))
+                    Text(state.live ? state.ambient.map { L("Ambiente %@ °%@", String(Int($0)), state.temperatureUnit) } ?? L("Ambiente — °C") : L("Ambiente — °C")).font(.system(size: 11)).foregroundStyle(.secondary)
+                }
                 Spacer()
                 power("ac")
             }
@@ -364,8 +409,7 @@ struct RoomPanel: View {
     private var lightPanel: some View {
         VStack(spacing: 16) {
             HStack {
-                Text(state.lampConnected ? (state.lightOn ? L("Luz ligada") : L("Luz desligada")) : state.hasLampState ? L("Último estado · reconectando…") : L("Lâmpada sem conexão"))
-                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                Text(state.powerLabel("lamp")).font(.system(size: 12, weight: .medium))
                 Spacer()
                 power("lamp")
             }
@@ -533,21 +577,31 @@ struct GlassPanel: View {
 
 // Compose white artwork, then let the native status button own its spacing and selection.
 enum StatusArtwork {
-    static func image(text: String) -> NSImage {
-        let label = NSAttributedString(string: text, attributes: [.foregroundColor: NSColor.white,
-            .font: NSFont.menuBarFont(ofSize: 0)])
+    static func image(acText: String, lampText: String) -> NSImage {
+        let attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.white,
+            .font: NSFont.menuBarFont(ofSize: 0)]
+        let label = NSAttributedString(string: acText, attributes: attributes)
+        let lampLabel = NSAttributedString(string: lampText, attributes: attributes)
         let size = label.size()
         let symbolWidth: CGFloat = 18
         let gap: CGFloat = 2
-        let canvas = NSSize(width: symbolWidth + gap + ceil(size.width), height: max(18, ceil(size.height)))
+        let lampX = symbolWidth + gap + ceil(size.width) + 8
+        let canvas = NSSize(width: lampX + symbolWidth + gap + ceil(lampLabel.size().width), height: max(18, ceil(size.height)))
         let symbol = NSImage(systemSymbolName: "air.conditioner.horizontal", accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 16, weight: .regular))?
             .withSymbolConfiguration(.init(paletteColors: [.white]))
         symbol?.isTemplate = false
+        let lamp = NSImage(systemSymbolName: "lightbulb", accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 16, weight: .regular))?
+            .withSymbolConfiguration(.init(paletteColors: [.white]))
+        lamp?.isTemplate = false
         let image = NSImage(size: canvas, flipped: false) { _ in
             symbol?.draw(in: NSRect(x: 0, y: (canvas.height - 18) / 2, width: symbolWidth, height: 18))
             label.draw(in: NSRect(x: symbolWidth + gap, y: (canvas.height - size.height) / 2,
                 width: size.width, height: size.height))
+            lamp?.draw(in: NSRect(x: lampX, y: (canvas.height - 18) / 2, width: symbolWidth, height: 18))
+            lampLabel.draw(in: NSRect(x: lampX + symbolWidth + gap, y: (canvas.height - lampLabel.size().height) / 2,
+                width: lampLabel.size().width, height: lampLabel.size().height))
             return true
         }
         image.isTemplate = false
@@ -572,8 +626,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let button = item.button {
             button.title = ""
             button.imagePosition = .imageOnly
-            statusText = L("Quarto")
-            button.image = StatusArtwork.image(text: statusText)
+            button.image = StatusArtwork.image(acText: state.acMenuLabel, lampText: state.lampMenuLabel)
             button.target = self
             button.action = #selector(togglePanel)
             if #available(macOS 27.0, *) {
@@ -784,10 +837,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateStatusButton() {
-        let title = state.acConnected ? "\(Int(state.temperature))°" : L("Quarto")
+        let title = "\(state.acMenuLabel) | \(state.lampMenuLabel)"
         if statusText != title {
             statusText = title
-            item.button?.image = StatusArtwork.image(text: title)
+            item.button?.image = StatusArtwork.image(acText: state.acMenuLabel, lampText: state.lampMenuLabel)
         }
         let opened = panel?.isVisible == true
         if #unavailable(macOS 27.0) {
@@ -797,9 +850,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 item.button?.highlight(opened)
             }
         }
-        item.button?.toolTip = opened ? L("Recolher controles do quarto") : L("Abrir controles do quarto")
+        let powerSummary = "\(L("Ar-condicionado")): \(state.powerLabel("ac")) · \(L("Iluminação")): \(state.powerLabel("lamp"))"
+        item.button?.toolTip = powerSummary
         item.button?.setAccessibilityLabel(opened ? L("Recolher controles do quarto") : L("Abrir controles do quarto"))
-        item.button?.setAccessibilityValue(title)
+        item.button?.setAccessibilityValue(powerSummary)
         if let button = item.button, let window = button.window {
             let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
             var geometry: [String: Double] = ["windowNumber": Double(window.windowNumber),
@@ -847,6 +901,11 @@ extension AppDelegate: NSStatusItemExpandedInterfaceDelegate {
 
 @main enum Main {
     @MainActor static func main() {
+        if CommandLine.arguments.contains("--power-status-check") {
+            let checks = DemoState.verifyPowerStates()
+            print(String(data: try! JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
+            exit(checks.values.allSatisfy { $0 } ? 0 : 1)
+        }
         if CommandLine.arguments.contains("--localization-check") {
             let results = verifyLocalizations()
             if let data = try? JSONSerialization.data(withJSONObject: results, options: [.sortedKeys]), let text = String(data: data, encoding: .utf8) { print(text) }

@@ -115,3 +115,6 @@
 "A consulta de estado não aceita comandos adicionais." = "A consulta de estado não aceita comandos adicionais.";
 "Não foi possível completar a operação local." = "Não foi possível completar a operação local.";
 "Quarto" = "Quarto";
+"Ar ligado" = "Ar ligado";
+"Ar desligado" = "Ar desligado";
+"Sem conexão" = "Sem conexão";
