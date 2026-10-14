@@ -259,12 +259,14 @@ struct RoomPanel: View {
                 Text(state.live ? (state.commandPending ? state.requestedTemperature.map { L("Aplicando %d °C…", Int($0)) } ?? L("Aplicando alteração…") : L(state.message)) : L("Prévia visual · sem conexão com os aparelhos"))
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer(minLength: 0)
-                Button { state.showInfo.toggle() } label: {
-                    Image(systemName: "slider.horizontal.3").font(.system(size: 16))
-                }.buttonStyle(.plain).foregroundStyle(accent)
-                    .accessibilityLabel(L("Informações da demonstração"))
+                if state.tab == 0 {
+                    Button { state.showInfo.toggle() } label: {
+                        Image(systemName: "slider.horizontal.3").font(.system(size: 16))
+                    }.buttonStyle(.plain).foregroundStyle(accent)
+                        .accessibilityLabel(L("Informações da demonstração"))
+                }
             }.padding(.top, 2)
-            if state.showInfo {
+            if state.showInfo && state.tab == 0 {
                 Text(state.live ? L("Seus cliques enviam comandos pela rede local. O painel mostra o estado recebido dos aparelhos e atualiza a leitura a cada 10 segundos. Temperatura em Celsius: 16 a 32 °C.") : L("Os controles alteram apenas esta demonstração."))
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
