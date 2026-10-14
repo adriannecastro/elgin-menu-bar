@@ -8,7 +8,7 @@ I built Elgin Menu Bar with SwiftUI and AppKit, using TinyTuya to communicate wi
 
 | Air conditioner | Lighting |
 | --- | --- |
-| ![Air conditioner panel showing temperature and Eco changes](docs/media/air-conditioner.gif) | ![Lighting panel showing brightness, white light, and color changes](docs/media/lighting.gif) |
+| ![Air conditioner switching off and on, with menu bar power status and temperature controls](docs/media/air-conditioner.gif) | ![Light switching off and on, with menu bar power status, brightness, and color controls](docs/media/lighting.gif) |
 
 English interface previews with simulated values. No appliances are connected in these animations.
 
