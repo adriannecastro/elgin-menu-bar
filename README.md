@@ -4,6 +4,14 @@ A native macOS menu bar app for compatible Elgin Wi-Fi air conditioners and smar
 
 I built Elgin Menu Bar with SwiftUI and AppKit, using TinyTuya to communicate with devices over the local network.
 
+## Preview
+
+| Air conditioner | Lighting |
+| --- | --- |
+| ![Air conditioner panel showing temperature and Eco changes](docs/media/air-conditioner.gif) | ![Lighting panel showing brightness, white light, and color changes](docs/media/lighting.gif) |
+
+English interface previews with simulated values. No appliances are connected in these animations.
+
 ## Controls
 
 | Air conditioner | Lighting |
@@ -41,7 +49,7 @@ git clone https://github.com/adriannecastro/elgin-menu-bar.git
 cd elgin-menu-bar
 ```
 
-Follow the [setup guide](docs/SETUP.md) to discover your devices, retrieve their local keys, and download their control specifications. The current setup helper uses the **Western America (`us`)** Tuya data center and expects exactly two discovered devices.
+Follow the [step-by-step setup guide](docs/SETUP.md) to create a Tuya Cloud project, authorize its APIs, link your Smart Life account, and retrieve local keys and control specifications. The current setup helper uses the **Western America (`us`)** Tuya data center and expects exactly two discovered devices.
 
 The setup creates the Python environment at `local/cloud-venv/` and saves the device configuration under `local/`. Complete those steps before launching the app.
 
