@@ -575,10 +575,10 @@ struct GlassPanel: View {
     }
 }
 
-// Compose white artwork, then let the native status button own its spacing and selection.
+// Template artwork lets macOS choose contrast for the entire menu bar item.
 enum StatusArtwork {
     static func image(acText: String, lampText: String) -> NSImage {
-        let attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.white,
+        let attributes: [NSAttributedString.Key: Any] = [.foregroundColor: NSColor.black,
             .font: NSFont.menuBarFont(ofSize: 0)]
         let label = NSAttributedString(string: acText, attributes: attributes)
         let lampLabel = NSAttributedString(string: lampText, attributes: attributes)
@@ -588,13 +588,9 @@ enum StatusArtwork {
         let lampX = symbolWidth + gap + ceil(size.width) + 8
         let canvas = NSSize(width: lampX + symbolWidth + gap + ceil(lampLabel.size().width), height: max(18, ceil(size.height)))
         let symbol = NSImage(systemSymbolName: "air.conditioner.horizontal", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 16, weight: .regular))?
-            .withSymbolConfiguration(.init(paletteColors: [.white]))
-        symbol?.isTemplate = false
+            .withSymbolConfiguration(.init(pointSize: 16, weight: .regular))
         let lamp = NSImage(systemSymbolName: "lightbulb", accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 16, weight: .regular))?
-            .withSymbolConfiguration(.init(paletteColors: [.white]))
-        lamp?.isTemplate = false
+            .withSymbolConfiguration(.init(pointSize: 16, weight: .regular))
         let image = NSImage(size: canvas, flipped: false) { _ in
             symbol?.draw(in: NSRect(x: 0, y: (canvas.height - 18) / 2, width: symbolWidth, height: 18))
             label.draw(in: NSRect(x: symbolWidth + gap, y: (canvas.height - size.height) / 2,
@@ -604,7 +600,7 @@ enum StatusArtwork {
                 width: lampLabel.size().width, height: lampLabel.size().height))
             return true
         }
-        image.isTemplate = false
+        image.isTemplate = true
         return image
     }
 }
@@ -726,6 +722,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     "tabSwitchCount": switches, "hostingViewPreserved": stable,
                     "hostIdentityPreserved": self.hostingView === originalHost,
                     "selectionHandlingConfigured": selectionHandlingConfigured,
+                    "statusArtworkUsesNativeContrast": self.item.button?.image?.isTemplate == true,
                     "closedPanelClearsSelection": selectionCleared,
                     "bothTabsFitPanel": contentFits,
                     "panelContainsNoScrollView": self.hostingView.map { !containsScrollView($0) } ?? false,
