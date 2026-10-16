@@ -66,6 +66,8 @@ open 'local/Elgin Menu Bar.app'
 
 The build script creates a locally signed app bundle under `local/`. Keep the repository in place: the app uses its Python bridge, environment, and device configuration at runtime. This build is not a standalone installer.
 
+To open it from Applications, copy `local/Elgin Menu Bar.app` into your Applications folder. After quitting, reopen **Elgin Menu Bar** from there. The copied app still needs this checkout at its original location. Rebuild and replace the copy in Applications when you update the project.
+
 You can also open `Package.swift` in Xcode, select the **ElginMenuBar** scheme and **My Mac**, and run it after completing setup.
 
 ## Compatibility and limits

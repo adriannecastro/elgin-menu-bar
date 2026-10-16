@@ -19,6 +19,7 @@ cat > "$APP_PATH/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDevelopmentRegion</key><string>en</string>
 <key>CFBundleLocalizations</key><array><string>en</string><string>pt</string></array>
 <key>CFBundleName</key><string>Elgin Menu Bar</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>LSUIElement</key><true/>
@@ -29,4 +30,5 @@ PLIST
 xattr -dr com.apple.FinderInfo "$APP_PATH" 2>/dev/null || true
 codesign --force --sign - "$APP_PATH"
 ditto --noextattr "$APP_PATH" "$FINAL_APP_PATH"
+xattr -dr com.apple.FinderInfo "$FINAL_APP_PATH" 2>/dev/null || true
 print "App criado: $FINAL_APP_PATH"
